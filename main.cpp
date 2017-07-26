@@ -59,16 +59,16 @@ private:
 		}
 
 		std::vector<std::string> requestedExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-		auto missingExtensions = std::remove_if(requestedExtensions.begin(), requestedExtensions.end(), [&](std::string ext) {
+		auto presentExtensions = std::remove_if(requestedExtensions.begin(), requestedExtensions.end(), [&](std::string ext) {
 			auto result = std::find_if(extensions.begin(), extensions.end(), [=](VkExtensionProperties props) {
 				return ext == props.extensionName;
 			});
 			return result != extensions.end();
 		});
-		requestedExtensions.erase(missingExtensions, requestedExtensions.end());
+		requestedExtensions.erase(presentExtensions, requestedExtensions.end());
 
 		if (requestedExtensions.size() > 0) {
-			std::cout << "Required extensions were missing: " << std::endl;
+			std::cout << "Some required extensions were missing: " << std::endl;
 			for (const auto& extension : requestedExtensions) {
 				std::cout << "\t" << extension << std::endl;
 			}
