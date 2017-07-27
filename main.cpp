@@ -62,13 +62,11 @@ struct QueueFamilyIndices {
 };
 
 struct SwapChainSupportDetails {
-	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
 
 	static SwapChainSupportDetails querySwapChainSupport(VkSurfaceKHR surface, VkPhysicalDevice device) {
 		SwapChainSupportDetails details;
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 		uint32_t formatCount;
 		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
 		if (formatCount != 0) {
@@ -242,13 +240,15 @@ struct SwapChainContext {
 
 	static SwapChainContext create(VkSurfaceKHR surface, VkDevice device, PhysicalDeviceContext physicalDeviceCtx) {
 		SwapChainContext ctx = {};
+		VkSurfaceCapabilitiesKHR capabilities;
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDeviceCtx.physicalDevice, surface, &capabilities);
 		VkPresentModeKHR presentMode = chooseSwapPresentMode(physicalDeviceCtx.swapChainCapabilities.presentModes);
 		ctx.surfaceFormat = chooseSwapSurfaceFormat(physicalDeviceCtx.swapChainCapabilities.formats);
-		ctx.extent = chooseSwapExtent(physicalDeviceCtx.swapChainCapabilities.capabilities);
+		ctx.extent = chooseSwapExtent(capabilities);
 
-		uint32_t imageCount = physicalDeviceCtx.swapChainCapabilities.capabilities.minImageCount + 1;
-		if (physicalDeviceCtx.swapChainCapabilities.capabilities.maxImageCount > 0 && imageCount > physicalDeviceCtx.swapChainCapabilities.capabilities.maxImageCount) {
-			imageCount = physicalDeviceCtx.swapChainCapabilities.capabilities.maxImageCount;
+		uint32_t imageCount = capabilities.minImageCount + 1;
+		if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) {
+			imageCount = capabilities.maxImageCount;
 		}
 
 		VkSwapchainCreateInfoKHR createInfo = {};
@@ -260,7 +260,7 @@ struct SwapChainContext {
 		createInfo.imageExtent = ctx.extent;
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		createInfo.preTransform = physicalDeviceCtx.swapChainCapabilities.capabilities.currentTransform;
+		createInfo.preTransform = capabilities.currentTransform;
 		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 		createInfo.presentMode = presentMode;
 		createInfo.clipped = VK_TRUE;
