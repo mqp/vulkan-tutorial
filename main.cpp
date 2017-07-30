@@ -521,11 +521,19 @@ private:
 		physicalDeviceCtx = PhysicalDeviceContext::findBest(instance, surface);
 		logicalDeviceCtx = LogicalDeviceContext::create(physicalDeviceCtx);
 		swapChainCtx = SwapChainContext::create(surface, logicalDeviceCtx.device, physicalDeviceCtx);
-		createRenderPass();
-		createGraphicsPipeline();
+
+		auto vertShader = createShaderModule(logicalDeviceCtx.device, "shaders/vert.spv");
+		auto fragShader = createShaderModule(logicalDeviceCtx.device, "shaders/frag.spv");
+
+		pipelineLayout = createPipelineLayout(logicalDeviceCtx.device);
+		renderPass = createRenderPass(logicalDeviceCtx.device, swapChainCtx);
+		graphicsPipeline = createGraphicsPipeline(logicalDeviceCtx.device, swapChainCtx, renderPass, pipelineLayout, vertShader, fragShader);
+
+		vkDestroyShaderModule(logicalDeviceCtx.device, fragShader, nullptr);
+		vkDestroyShaderModule(logicalDeviceCtx.device, vertShader, nullptr);
 	}
 
-	void createRenderPass() {
+	static VkRenderPass createRenderPass(VkDevice device, SwapChainContext swapChainCtx) {
 		VkAttachmentDescription colorAttachment = {};
 		colorAttachment.format = swapChainCtx.surfaceFormat.format;
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -552,25 +560,40 @@ private:
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
 
-		if (vkCreateRenderPass(logicalDeviceCtx.device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+		VkRenderPass renderPass;
+		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create render pass!");
 		}
+		return renderPass;
 	}
 
-	void createGraphicsPipeline() {
-		auto vertShaderModule = createShaderModule(logicalDeviceCtx.device, "shaders/vert.spv");
-		auto fragShaderModule = createShaderModule(logicalDeviceCtx.device, "shaders/frag.spv");
+	static VkPipelineLayout createPipelineLayout(VkDevice device) {
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = 0; // Optional
+		pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+		pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
+		pipelineLayoutInfo.pPushConstantRanges = 0; // Optional
 
+		VkPipelineLayout layout;
+		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create pipeline layout!");
+		}
+		return layout;
+	}
+
+	static VkPipeline createGraphicsPipeline(VkDevice device, SwapChainContext swapChainCtx, VkRenderPass renderPass,
+		VkPipelineLayout pipelineLayout, VkShaderModule vertShader, VkShaderModule fragShader) {
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
 		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertShaderStageInfo.module = vertShaderModule;
+		vertShaderStageInfo.module = vertShader;
 		vertShaderStageInfo.pName = "main";
 
 		VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
 		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragShaderStageInfo.module = fragShaderModule;
+		fragShaderStageInfo.module = fragShader;
 		fragShaderStageInfo.pName = "main";
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
@@ -659,17 +682,6 @@ private:
 		dynamicState.dynamicStateCount = 2;
 		dynamicState.pDynamicStates = dynamicStates;
 
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0; // Optional
-		pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
-		pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-		pipelineLayoutInfo.pPushConstantRanges = 0; // Optional
-
-		if (vkCreatePipelineLayout(logicalDeviceCtx.device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create pipeline layout!");
-		}
-
 		VkGraphicsPipelineCreateInfo pipelineInfo = {};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = 2;
@@ -688,12 +700,11 @@ private:
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
 
-		if (vkCreateGraphicsPipelines(logicalDeviceCtx.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+		VkPipeline pipeline;
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create graphics pipeline!");
 		}
-
-		vkDestroyShaderModule(logicalDeviceCtx.device, fragShaderModule, nullptr);
-		vkDestroyShaderModule(logicalDeviceCtx.device, vertShaderModule, nullptr);
+		return pipeline;
 	}
 
 	void mainLoop() {
